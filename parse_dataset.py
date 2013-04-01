@@ -51,7 +51,7 @@ with open(args.path, 'rb') as f:
     r['submit_time'] = r['submit_time'] - r['first_time']
 
     # skip if duration too long (>15 minutes)
-    if r['submit_time'] > 900:
+    if r['submit_time'] > 900 or r['submit_time'] < 0:
       continue
 
     c.execute("INSERT INTO transactions ({}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)".format(colstr), 
@@ -136,5 +136,10 @@ for root, dirs, files in os.walk(args.moddir):
               (metaid, uid, count))
 
           count+=1
+
+print 'creating indexes into transactions table'
+c.execute("CREATE INDEX metaid_index ON transactions (metaid)")
+c.execute("CREATE INDEX uid_index ON transactions (uid)")
+print "done"
 conn.commit()
 conn.close()
