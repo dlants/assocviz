@@ -33,8 +33,19 @@ class Event:
   def token(self):
     '''Return a tuple representing an event token, to be used in association
     mining.'''
+    out = ''
+    out += str(self.metaid)
+    out += "|" + str(self.idx)
+    if(self.correct):
+      out += '|Y'
+    else:
+      out += '|N'
+    if(self.hint):
+      out += '|Y'
+    else:
+      out += '|N'
     
-    return (self.metaid, self.idx, self.correct, self.hint)
+    return out
 
   def __str__(self):
     time_str = time.strftime("%H:%M:%S - %m/%d/%Y", self.start)
@@ -71,7 +82,8 @@ class RMDB:
         metaid = transaction[2]
         count = 0
 
-      out[uid].append(Event(transaction, count))
+      if count < 2:
+        out[uid].append(Event(transaction, count))
       count += 1
 
     return out
@@ -84,10 +96,11 @@ class RMDB:
 
 
   def select_module(self, module_uid):
-    self.c.execute('''SELECT metaid FROM problems where module_uid=? order by idx desc''', 
-        module_uid)
+    self.c.execute('''SELECT metaid FROM problems where module_uid = ? order by idx desc''', 
+        (module_uid,))
 
     metaids = self.c.fetchall()
+
     for metaid in metaids:
       self.selection.append(metaid[0])
 
