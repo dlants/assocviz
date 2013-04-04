@@ -92,8 +92,7 @@ class RMDB:
     self.c.execute('''select uid from modules where obj_uid = ?''', (obj_uid,))
 
     for module_uid in self.c.fetchall():
-      self.select_module(module_uid)
-
+      self.select_module(str(module_uid[0]))
 
   def select_module(self, module_uid):
     self.c.execute('''SELECT metaid FROM problems where module_uid = ? order by idx desc''', 
