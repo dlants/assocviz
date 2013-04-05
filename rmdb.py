@@ -122,8 +122,7 @@ if __name__ == "__main__":
   if len(sys.argv) == 2:
   	for key in out.keys():
   		for val in out[key]:
-  			print key + "," + '\t-{}'.format(val)
-#print '\n'
+  			print '\t-{}'.format(val)
   else:
     	for key in out.keys():
 			print key + ":"

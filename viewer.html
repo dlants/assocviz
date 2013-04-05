@@ -1,6 +1,5 @@
 <!-- 
-# This file uses D3 to visualize
-the data from the dataset.csv file
+# This file uses D3 to visualize the data from the dataset.csv file
 # Created by Yogi Patel
 # yapatel@gatech.edu
 -->
@@ -16,12 +15,27 @@ the data from the dataset.csv file
 	<body>
 		<script type="text/javascript">
 
-		d3.csv("data.csv", function(d) {
-				return {
-					time: d.time,
+		var format = d3.time.format("%H:%M:%ST%m-%d-%Y");
 
+		var datapts = d3.csv("data2.csv", function(d) {
+				return {
+					time: format(new Date(d.time)),
+					duration: d.duration,
+					idx: d.idx,
+					uid: d.uid,
+					metaid: d.metaid,
+					correct: d.correct,
+					hint: d.hint
 				};
-				},
+				}, function(error,rows) {
+					console.log(rows)
+				});
+
+		d3.select("body").selectAll("p")
+			.data(datapts)
+			.enter()
+			.append("p")
+			.text("meeeeeee!");
 
 		</script>
 	</body>
