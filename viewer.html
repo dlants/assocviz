@@ -15,27 +15,41 @@
 	<body>
 		<script type="text/javascript">
 
-		var format = d3.time.format("%H:%M:%ST%m-%d-%Y");
+		d3.csv("data2.csv", function(data){
+				var dataset = d3.select("body")
+												.selectAll("p")
+												.data(data)
+												.enter();
 
-		var datapts = d3.csv("data2.csv", function(d) {
-				return {
-					time: format(new Date(d.time)),
-					duration: d.duration,
-					idx: d.idx,
-					uid: d.uid,
-					metaid: d.metaid,
-					correct: d.correct,
-					hint: d.hint
-				};
-				}, function(error,rows) {
-					console.log(rows)
+				dataset.append("span").html(function(d){
+					return +d.time + ", " + d.duration + "s, " + d.idx + ", " +
+					d.uid + ", " + d.metaid + ", " + d.correct + ", " + d.hint + "</br>";
+					});
 				});
 
-		d3.select("body").selectAll("p")
-			.data(datapts)
-			.enter()
-			.append("p")
-			.text("meeeeeee!");
+		// only here for testing
+		var data2 = [1,2,3,4,5];
+
+		var svg = d3.select("body")
+								.append("svg")
+								.attr("width", 800)
+								.attr("height", 400);
+
+		// there's a problem in here somewhere!
+		var circles = svg.selectAll("circle")
+										 .data(data2)
+										 .enter()
+										 .append("circle");
+
+		circles.attr("cx", function(d,i){
+				return (i*50);
+				})
+				.attr("cy", 10)
+				.attr("fill", "green")
+				.attr("stroke", "red")
+				.attr("r", function(d){
+						return d;
+				});
 
 		</script>
 	</body>
