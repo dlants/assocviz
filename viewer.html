@@ -1,0 +1,52 @@
+<!-- 
+# This file uses D3 to visualize the data from the dataset.csv file
+# Created by Yogi Patel
+# yapatel@gatech.edu
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script type="text/javascript" src="d3/d3.v3.js"></script>
+<title>AssocVizualizer</title>
+</head>
+
+<body>
+<script type="text/javascript">
+
+d3.csv("data.csv", function(data){
+	var datapts = d3.select("body")
+	.selectAll("p")
+	.data(data)
+	.enter();
+
+datapts.append("span").html(function(d){
+	return +d.time + ", " + d.duration + 
+	"s, " + d.idx + ", " + d.uid + ", " +
+	d.metaid + ", " + d.correct + ", " + 
+	d.hint + "</br>";});
+	
+var svg = d3
+	.select("body")
+	.append("svg")
+	.attr("width", 800)
+	.attr("height", 400);
+
+var circles = svg
+	.selectAll("circle")
+	.data(datapts)
+	.enter()
+	.append("circle");
+
+circles
+	.attr("cx", function(d,cx){return (d.uid);})
+	.attr("cy", function(d,cy){return (d.duration);})
+	.attr("r", function(d,r){return (23);})
+	.attr("fill", "steelblue")
+	.attr("stroke", "red")
+});
+
+</script>
+</body>
+</html>
