@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 *.py[cod]
 
 # C extensions
@@ -33,3 +34,13 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+=======
+*.pyc
+*.swp
+__pycache__/*
+tags
+build/*
+dist/*
+.tox/*
+MANIFEST
+>>>>>>> 4692c2b5f44c5129861f28a12249c00c7b3e6a39

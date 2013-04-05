@@ -12,7 +12,7 @@ import re
 import argparse
 
 class Event:
-  def __init__(self, transaction, idx):
+  def __init__(self, transaction, attempt):
     '''Stores the info for an event.
 
     idx - the attempt of the student at the given problem.
@@ -23,7 +23,7 @@ class Event:
     correct - was the interaction correct?
     hint - did the student use a hint?
     '''
-    self.idx = idx
+    self.attempt = attempt 
     self.uid, self.pid, self.metaid, self.problemuid = transaction[0:4]
     self.start = time.localtime(transaction[4])
     self.duration = transaction[5]
@@ -35,15 +35,15 @@ class Event:
     mining.'''
     out = ''
     out += str(self.metaid)
-    out += "|" + str(self.idx)
-    if(self.correct):
-      out += '|Y'
+    out += "|" + str(self.attempt)
+    if self.correct:
+      out += '|correct'
     else:
-      out += '|N'
-    if(self.hint):
-      out += '|Y'
+      out += '|wrong'
+    if self.hint:
+      out += '|hint'
     else:
-      out += '|N'
+      out += '|nohint'
     
     return out
 
@@ -85,6 +85,9 @@ class RMDB:
       if count < 2:
         out[uid].append(Event(transaction, count))
       count += 1
+
+    for uid in out.keys():
+      out[uid] = sorted(out[uid], key = lambda x: x.start)
 
     return out
 
