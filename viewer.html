@@ -15,9 +15,11 @@
 <body>
 <script type="text/javascript">
 
-d3.csv("data2.csv", function(data){
+d3.csv("data.csv", function(data){
 	var datapts = d3.select("body")
-	.selectAll("p").data(data).enter();
+	.selectAll("p")
+	.data(data)
+	.enter();
 
 datapts.append("span").html(function(d){
 	return +d.time + ", " + d.duration + 
@@ -25,19 +27,24 @@ datapts.append("span").html(function(d){
 	d.metaid + ", " + d.correct + ", " + 
 	d.hint + "</br>";});
 	
-	var data2 = [1,2,3,4,5];	
-	
-var svg = d3.select("body").append("svg")
-	.attr("width", 800).attr("height", 400);
+var svg = d3
+	.select("body")
+	.append("svg")
+	.attr("width", 800)
+	.attr("height", 400);
 
-// there's a problem in here somewhere!
-var circles = svg.selectAll("circle")
-	.data(datapts).enter().append("circle");
+var circles = svg
+	.selectAll("circle")
+	.data(datapts)
+	.enter()
+	.append("circle");
 
-circles.attr("cx", function(d,i){
-	return (100);}).attr("cy", 100)
-	.attr("fill", "green").attr("stroke", "red")
-	.attr("r", function(d){return (d.duration+10);});
+circles
+	.attr("cx", function(d,cx){return (d.uid);})
+	.attr("cy", function(d,cy){return (d.duration);})
+	.attr("r", function(d,r){return (23);})
+	.attr("fill", "steelblue")
+	.attr("stroke", "red")
 });
 
 </script>
