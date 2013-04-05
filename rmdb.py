@@ -49,8 +49,13 @@ class Event:
 
   def __str__(self):
     time_str = time.strftime("%H:%M:%S - %m/%d/%Y", self.start)
-    return '[{} - {} s - attempt {} | uid: {} pid: {} | correct: {} hint: {}]'.format(
-        time_str, self.duration, self.idx, self.uid, self.metaid, self.correct, self.hint)
+
+    if len(sys.argv)==2:
+    	return '{},{},{},{},{},{},{}'.format(
+    			time_str, self.duration, self.idx, self.uid, self.metaid, self.correct, self.hint)
+		else:
+		return '[{} - {} s - attempt {} | uid: {} pid: {} | correct: {} hint: {}]'.format(
+				time_str, self.duration, self.idx, self.uid, self.metaid, self.correct, self.hint)
 
 class RMDB:
   def __init__(self, path):
