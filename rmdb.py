@@ -118,11 +118,17 @@ if __name__ == "__main__":
 
   rmdb.select_objective('MT-ELM-DefWholNum-RM')
   out = rmdb.query()
-
-  for key in out.keys():
-    print key + ":"
-    for val in out[key]:
-      print '\t-{}'.format(val)
-    print '\n'
+  
+  if len(sys.argv) == 2:
+  	for key in out.keys():
+  		for val in out[key]:
+  			print key + "," + '\t-{}'.format(val)
+#print '\n'
+  else:
+    	for key in out.keys():
+			print key + ":"
+			for val in out[key]:
+				print '\t-{}'.format(val)
+			print '\n'
 
   rmdb.close()
