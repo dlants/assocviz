@@ -6,51 +6,40 @@
 
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<script type="text/javascript" src="d3/d3.v3.js"></script>
-		<title>AssocVizualizer</title>
-	</head>
+<head>
+<meta charset="utf-8">
+<script type="text/javascript" src="d3/d3.v3.js"></script>
+<title>AssocVizualizer</title>
+</head>
 
-	<body>
-		<script type="text/javascript">
+<body>
+<script type="text/javascript">
 
-		d3.csv("data2.csv", function(data){
-				var dataset = d3.select("body")
-												.selectAll("p")
-												.data(data)
-												.enter();
+d3.csv("data2.csv", function(data){
+	var datapts = d3.select("body")
+	.selectAll("p").data(data).enter();
 
-				dataset.append("span").html(function(d){
-					return +d.time + ", " + d.duration + "s, " + d.idx + ", " +
-					d.uid + ", " + d.metaid + ", " + d.correct + ", " + d.hint + "</br>";
-					});
-				});
+datapts.append("span").html(function(d){
+	return +d.time + ", " + d.duration + 
+	"s, " + d.idx + ", " + d.uid + ", " +
+	d.metaid + ", " + d.correct + ", " + 
+	d.hint + "</br>";});
+	
+	var data2 = [1,2,3,4,5];	
+	
+var svg = d3.select("body").append("svg")
+	.attr("width", 800).attr("height", 400);
 
-		// only here for testing
-		var data2 = [1,2,3,4,5];
+// there's a problem in here somewhere!
+var circles = svg.selectAll("circle")
+	.data(datapts).enter().append("circle");
 
-		var svg = d3.select("body")
-								.append("svg")
-								.attr("width", 800)
-								.attr("height", 400);
+circles.attr("cx", function(d,i){
+	return (100);}).attr("cy", 100)
+	.attr("fill", "green").attr("stroke", "red")
+	.attr("r", function(d){return (d.duration+10);});
+});
 
-		// there's a problem in here somewhere!
-		var circles = svg.selectAll("circle")
-										 .data(data2)
-										 .enter()
-										 .append("circle");
-
-		circles.attr("cx", function(d,i){
-				return (i*50);
-				})
-				.attr("cy", 10)
-				.attr("fill", "green")
-				.attr("stroke", "red")
-				.attr("r", function(d){
-						return d;
-				});
-
-		</script>
-	</body>
+</script>
+</body>
 </html>
