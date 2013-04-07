@@ -45,7 +45,6 @@ class Assoc_Learner:
     print "found {} frequent sequences".format(len(freq_seqs))
     print "found {} rules with sufficient gain".format(len(self.rules))
 
-
   def mine_rules(self, baskets):
     print "preparing itemset"
     relim_input = itemmining.get_relim_input(baskets)
@@ -62,7 +61,7 @@ class Assoc_Learner:
     self.rules = sorted(self.rules, key = lambda x: -x[2])
     
   def find_rules(self):
-    #self.rmdb.selection = self.rmdb.selection[:15]
+    self.rmdb.selection = self.rmdb.selection[:15]
     print "selection : {} metaids".format(len(self.rmdb.selection))
     print "querying db"
     usr_dict = self.rmdb.query()
@@ -109,8 +108,8 @@ class Assoc_Learner:
 
 if __name__ == "__main__":
   # test code
-  asl = Assoc_Learner('rm.db', min_support = 0.2, min_confidence = 0.7, min_gain = 1.4)
+  asl = Assoc_Learner('rm.db', min_support = 0.2, min_confidence = 0.7, min_gain = 1.2)
   #asl.rmdb.select_metaid('MT-ELM-DivdDivrQuot-u1-1-RM')
   asl.rmdb.select_module('MT-ELM-DefWholNum-Th-RM')
   asl.find_rules()
-  asl.print_rules()
+  import pdb; pdb.set_trace()
