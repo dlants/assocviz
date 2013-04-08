@@ -11,20 +11,36 @@ import sqlite3
 import re
 import argparse
 
-class Event:
-  def __init__(self, transaction, attempt):
-    '''Stores the info for an event.
+class Objective:
+  def __init__(self, obj_tuple):
+    self.obj_id, self.obj_idx, self.name, self.short_name = obj_tuple 
+    self.modules = []
+    self.selected = False
 
-    idx - the attempt of the student at the given problem.
-    metaid - the metaid of the given problem
-    uid - the uid of the student
-    start - the sart time of the interaction
-    duration - the duration of the interaction
-    correct - was the interaction correct?
-    hint - did the student use a hint?
+  def __str__(self):
+    return str(self.obj_idx) + '|' + self.obj_id
+
+  def __repr__(self):
+    return str(self.obj_idx) + '|' + self.obj_id
+
+class Module:
+  def __init__(self, module_tuple):
+    self.module_id, self.obj_id, self.module_idx, self.name = module_tuple
+    self.meta_ids = []
+    self.selected = False
+
+  def __str__(self):
+    return str(self.module_idx) + " | " + self.module_id
+
+  def __repr__(self):
+    return str(self.module_idx) + " | " + self.module_id
+
+class Event:
+  def __init__(self, transaction, attempt_idx):
+    '''Stores the info for an event.
     '''
-    self.attempt = attempt 
-    self.uid, self.pid, self.metaid, self.problemuid = transaction[0:4]
+    self.attempt_idx = attempt_idx
+    self.user_id, self.pid, self.meta_id, self.problem_id = transaction[0:4]
     self.start = time.localtime(transaction[4])
     self.duration = transaction[5]
     self.hint = (transaction[6] == u'YES')
@@ -34,8 +50,8 @@ class Event:
     '''Return a tuple representing an event token, to be used in association
     mining.'''
     out = ''
-    out += str(self.metaid)
-    out += "|" + str(self.attempt)
+    out += str(self.meta_id)
+    out += "|" + str(self.attempt_idx)
     if self.correct:
       out += '|correct'
     else:
@@ -51,75 +67,142 @@ class Event:
     time_str = time.strftime("%H:%M:%S - %m/%d/%Y", self.start)
 
     if len(sys.argv) == 2:
-    	return '{},{},{},{},{},{},{}'.format(time_str, self.duration, self.idx, self.uid, self.metaid, self.correct, self.hint)
+    	return '{},{},{},{},{},{},{}'.format(time_str, self.duration, 
+            self.attempt_idx, self.user_id, self.meta_id, self.correct, self.hint)
     else:
-    	return '[{} - {} s - attempt {} | uid: {} pid: {} | correct: {} hint: {}]'.format(time_str, self.duration, self.idx, self.uid, self.metaid, self.correct, self.hint)
+        return '[{} - {} s - attempt {} | user_id: {} meta_id: {} | correct: {} hint: {}]'\
+            .format(time_str, self.duration, self.idx, self.user_id, self.meta_id, self.correct, self.hint)
 
 class RMDB:
   def __init__(self, path):
     self.conn = sqlite3.connect(path)
     self.c = self.conn.cursor()
-    self.selection = []
+    self.curriculum = []
+    self.meta_id_map = {}
+    self.c.execute('''select * from objectives order by obj_idx''')
+    # compose objectives
+    objs = self.c.fetchall()
+    for obj_tuple in objs:
+      obj = Objective(obj_tuple)
 
-  def query(self):
+      self.c.execute('''select * from modules where obj_id = ? order by module_idx''', (obj.obj_id,))
+      modules = self.c.fetchall()
+      # compose modules
+      for module_tuple in modules:
+        mod = Module(module_tuple)
+
+        # compose metaids
+        self.c.execute('''SELECT meta_id FROM problems where module_id = ? order by meta_idx desc''', 
+          (mod.module_id,))
+
+        metas = self.c.fetchall()
+
+        for meta_id in metas:
+          mod.meta_ids.append(meta_id[0])
+          self.meta_id_map[meta_id[0]] = (obj.obj_id, mod.module_id)
+
+        obj.modules.append(mod)
+      self.curriculum.append(obj)
+
+  def query_all(self):
+    '''get all of the transactions.'''
+    q_str = '''select * from transactions order by user_id, meta_id, start'''
+    self.c.execute(q_str)
+
+    user_id = None
+    meta_id = None
+    attempt = 0
+
+    self.query = {}
+
+    while True:
+      transaction  = self.c.fetchone()
+      if not transaction:
+        break 
+      if not transaction[0] == user_id:
+        user_id = transaction[0]
+        meta_id = None
+        attempt = 0
+        self.query[user_id] = []
+
+      if not transaction[2] == meta_id:
+        meta_id = transaction[2] 
+        attempt = 0
+
+      if attempt > 1:
+        continue
+
+      self.query[user_id].append(Event(transaction, attempt))
+      attempt += 1
+
+  def query(self, max_metaids = -1):
     '''Query the db by my selection.
     
-    Output is a dictionary, mapping a student uid to event objects.'''
+    sets self.query to a dictionary, mapping objective -> module -> a list of 
+    events sorted by uid, metaid and start time'''
 
-    q_str = '''SELECT * FROM transactions WHERE metaid IN ({seq}) order by 
-        uid, metaid, start'''.format(seq=','.join(['?']*len(self.selection)))
 
-    self.c.execute(q_str, self.selection)
-    out = {}
-
-    uid = None
-    metaid = None
+    meta_ids = []
     count = 0
-    for transaction in self.c.fetchall():
-      if not transaction[0] == uid:
-        uid = transaction[0]
-        out[uid] = []
-        count = 0
 
-      if not metaid == transaction[2]:
-        metaid = transaction[2]
-        count = 0
+    for obj in self.curriculum:
+      for module in obj.modules:
+        if obj.selected or module.selected:
+          meta_ids.extend(module.meta_ids)
 
-      if count < 2:
-        out[uid].append(Event(transaction, count))
-      count += 1
+    if max_metaids > 0:
+      meta_ids = meta_ids[:max_metaids]
 
-    for uid in out.keys():
-      out[uid] = sorted(out[uid], key = lambda x: x.start)
+    q_str = '''SELECT * FROM transactions WHERE meta_id IN ({seq}) order by 
+      user_id, meta_id, start'''.format(seq=','.join(['?']*len(meta_ids)))
+    self.c.execute(q_str, meta_ids)
+    transactions = self.c.fetchall()
 
-    return out
+    user_id = None
+    meta_id = None
+    attempt = 0
 
-  def select_objective(self, obj_uid):
-    self.c.execute('''select uid from modules where obj_uid = ?''', (obj_uid,))
+    self.query = {}
 
-    for module_uid in self.c.fetchall():
-      self.select_module(str(module_uid[0]))
+    for transaction in transactions:
+      if not transaction[0] == user_id:
+        user_id = transaction[0]
+        meta_id = None
+        attempt = 0
+        self.query[user_id] = []
 
-  def select_module(self, module_uid):
-    self.c.execute('''SELECT metaid FROM problems where module_uid = ? order by idx desc''', 
-        (module_uid,))
+      if not transaction[2] == meta_id:
+        meta_id = transaction[2] 
+        attempt = 0
 
-    metaids = self.c.fetchall()
+      if attempt > 1:
+        continue
 
-    for metaid in metaids:
-      self.selection.append(metaid[0])
+      self.query[user_id].append(Event(transaction, attempt))
+      attempt += 1
 
-  def select_metaid(self, metaid):
-    self.selection.append(metaid)
+  def select(self, obj_idxs = None, module_id = None):
+    if obj_idxs:
+      for obj in self.curriculum:
+        # if obj is selected, all modules are selected
+        if obj_idxs == -1 or obj.obj_idx in obj_idxs:
+          obj.selected = True
+      return
+
+    for obj in self.curriculum:
+      for mod in obj.modules:
+        if mod.module_id == module_id:
+          # if module is selected, all metaids are selected
+          mod.selected = True
 
   def close(self):
     self.conn.close()
 
 if __name__ == "__main__":
   # test code
-  rmdb = RMDB('rm.db')
+  rmdb = RMDB('data/rm.db')
+  rmdb.select([0])
 
-  rmdb.select_objective('MT-ELM-DefWholNum-RM')
   out = rmdb.query()
   
   if len(sys.argv) == 2:

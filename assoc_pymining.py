@@ -45,6 +45,9 @@ class Assoc_Learner:
     print "found {} frequent sequences".format(len(freq_seqs))
     print "found {} rules with sufficient gain".format(len(self.rules))
 
+    self.nonmax_suppression()
+    print "found {} maximal rules".format(len(self.max_rules))
+
   def mine_rules(self, baskets):
     print "preparing itemset"
     relim_input = itemmining.get_relim_input(baskets)
@@ -60,13 +63,25 @@ class Assoc_Learner:
     # sort by support
     self.rules = sorted(self.rules, key = lambda x: -x[2])
     
-  def find_rules(self):
-    self.rmdb.selection = self.rmdb.selection[:15]
-    print "selection : {} metaids".format(len(self.rmdb.selection))
-    print "querying db"
-    usr_dict = self.rmdb.query()
+  def nonmax_suppression(self):
+    ''' remove all rules from self.rules that are subsets of other rules. '''
 
-    baskets = [[x.token() for x in usr_dict[y]] for y in usr_dict.keys()]
+    self.max_rules = []
+    for idx, rule in enumerate(self.rules):
+      subsumed = False
+      for idx2, rule2 in enumerate(self.rules):
+        if rule[0] < rule2[0] and rule[1] == rule2[1]:
+          subsumed = True
+          break
+
+      if not subsumed and not rule in self.max_rules:
+        self.max_rules.append(rule)
+
+  def find_rules(self):
+    print "querying db"
+    self.rmdb.query()
+
+    baskets = [[x.token() for x in self.rmdb.query[y]] for y in self.rmdb.query.keys()]
     print "{} baskets".format(len(baskets))
 
     tokens = reduce(set.union, [set(x) for x in baskets])
@@ -84,7 +99,7 @@ class Assoc_Learner:
     self.mine_seqs(baskets_short)
 
   def print_rules(self):
-    for rule in self.rules:
+    for rule in self.max_rules:
       s = '['
       for item in rule[0]: # incedent
         s += self.idx_to_token[item] + ', '
@@ -95,7 +110,7 @@ class Assoc_Learner:
       print s
 
   def print_rules_compact(self):
-    for rule in self.rules:
+    for rule in self.max_rules:
       s = '['
       for item in rule[0]: # incedent
         s += str(item) + ', '
@@ -108,8 +123,8 @@ class Assoc_Learner:
 
 if __name__ == "__main__":
   # test code
-  asl = Assoc_Learner('rm.db', min_support = 0.2, min_confidence = 0.7, min_gain = 1.2)
-  #asl.rmdb.select_metaid('MT-ELM-DivdDivrQuot-u1-1-RM')
-  asl.rmdb.select_module('MT-ELM-DefWholNum-Th-RM')
+  asl = Assoc_Learner('data/rm.db', min_support = 0.2, min_confidence = 0.7, min_gain = 1.4)
+  asl.rmdb.select([101])
   asl.find_rules()
+  asl.print_rules()
   import pdb; pdb.set_trace()

@@ -25,7 +25,7 @@ c = conn.cursor()
 colsin = ['#userid', 'problemid', 'metaid', 'problemuid', 'first_time', 
   'submit_time', 'hint_used', 'answercorrect']
 
-colsout = ['uid', 'pid', 'metaid', 'problemuid', 'start', 
+colsout = ['user_id', 'problem_num', 'meta_id', 'problem_id', 'start', 
   'duration', 'hint', 'correct']
 
 colstr = ""
@@ -66,7 +66,7 @@ curriculum = [x.childNodes[0].data for x in curriculum_dom.getElementsByTagName(
 
 objectives_dom = minidom.parse(args.objpath)
 
-colsobj = ['uid', 'curr_idx', 'name', 'short_name']
+colsobj = ['obj_id', 'obj_idx', 'name', 'short_name']
 
 colstr = ""
 for col in colsobj:
@@ -88,7 +88,7 @@ for objective_idx, objective_uid in enumerate(curriculum):
 conn.commit()
 print 'creating module and problem tables'
 
-colsmodule = ['uid', 'obj_uid', 'name']
+colsmodule = ['module_id', 'obj_id', 'module_idx', 'name']
 mod_colstr = ""
 for col in colsmodule:
   mod_colstr += col + ","
@@ -97,7 +97,7 @@ mod_colstr = mod_colstr[:-1]
 c.execute("DROP TABLE IF EXISTS modules;")
 c.execute("CREATE TABLE modules ({});".format(mod_colstr))
 
-colsprob = ['metaid', 'module_uid', 'idx']
+colsprob = ['meta_id', 'module_id', 'meta_idx']
 prob_colstr = ""
 for col in colsprob:
   prob_colstr += col + ","
@@ -119,8 +119,22 @@ for root, dirs, files in os.walk(args.moddir):
 
     obj_uid = obj_uid[0].childNodes[0].data
 
-    c.execute("INSERT INTO modules ({}) VALUES (?, ?, ?)".format(mod_colstr), 
-        (uid, obj_uid, name))
+    # order the objectives
+    idx = -1
+    if '-IR-' in uid:
+      idx = 1
+    if '-Th-' in uid:
+      idx = 2
+    if '-A-Pr-' in uid:
+      idx = 3
+    if '-B-Pr-' in uid:
+      idx = 4
+
+    if idx == -1:
+      continue
+
+    c.execute("INSERT INTO modules ({}) VALUES (?, ?, ?, ?)".format(mod_colstr), 
+        (uid, obj_uid, idx, name))
 
     # regular expression for finding metaids
     count = 1
@@ -138,8 +152,8 @@ for root, dirs, files in os.walk(args.moddir):
           count+=1
 
 print 'creating indexes into transactions table'
-c.execute("CREATE INDEX metaid_index ON transactions (metaid)")
-c.execute("CREATE INDEX uid_index ON transactions (uid)")
+c.execute("CREATE INDEX metaid_index ON transactions (meta_id)")
+c.execute("CREATE INDEX uid_index ON transactions (user_id)")
 print "done"
 conn.commit()
 conn.close()
