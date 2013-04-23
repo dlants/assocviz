@@ -151,6 +151,12 @@ for root, dirs, files in os.walk(args.moddir):
 
           count+=1
 
+print 'pruning extraneous entries from db.'
+c.execute('''delete from objectives where obj_id not in (select obj_id from modules)''')
+c.execute('''delete from modules where module_id not in (select module_id from problems)''')
+c.execute('''delete from transactions where meta_id not in (select meta_id from problems)''')
+
+
 print 'creating indexes into transactions table'
 c.execute("CREATE INDEX metaid_index ON transactions (meta_id)")
 c.execute("CREATE INDEX uid_index ON transactions (user_id)")

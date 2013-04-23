@@ -10,6 +10,8 @@ import xml.dom.minidom as minidom
 import sqlite3
 import re
 import argparse
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Objective:
   def __init__(self, obj_tuple):
@@ -34,44 +36,6 @@ class Module:
 
   def __repr__(self):
     return str(self.module_idx) + " | " + self.module_id
-
-class Event:
-  def __init__(self, transaction, attempt_idx):
-    '''Stores the info for an event.
-    '''
-    self.attempt_idx = attempt_idx
-    self.user_id, self.pid, self.meta_id, self.problem_id = transaction[0:4]
-    self.start = time.localtime(transaction[4])
-    self.duration = transaction[5]
-    self.hint = (transaction[6] == u'YES')
-    self.correct = (transaction[7] == u'YES')
-
-  def token(self):
-    '''Return a tuple representing an event token, to be used in association
-    mining.'''
-    out = ''
-    out += str(self.meta_id)
-    out += "|" + str(self.attempt_idx)
-    if self.correct:
-      out += '|correct'
-    else:
-      out += '|wrong'
-    if self.hint:
-      out += '|hint'
-    else:
-      out += '|nohint'
-    
-    return out
-
-  def __str__(self):
-    time_str = time.strftime("%H:%M:%S - %m/%d/%Y", self.start)
-
-    if len(sys.argv) == 2:
-    	return '{},{},{},{},{},{},{}'.format(time_str, self.duration, 
-            self.attempt_idx, self.user_id, self.meta_id, self.correct, self.hint)
-    else:
-        return '[{} - {} s - attempt {} | user_id: {} meta_id: {} | correct: {} hint: {}]'\
-            .format(time_str, self.duration, self.idx, self.user_id, self.meta_id, self.correct, self.hint)
 
 class RMDB:
   def __init__(self, path):
@@ -135,12 +99,15 @@ class RMDB:
       self.query[user_id].append(Event(transaction, attempt))
       attempt += 1
 
+  def token(self, transaction, attempt):
+    '''Generate a set token for the given transaction'''
+    return transaction[2], attempt, transaction[6] == 'YES', transaction[7] == 'YES'
+
   def query(self, max_metaids = -1):
     '''Query the db by my selection.
     
-    sets self.query to a dictionary, mapping objective -> module -> a list of 
-    events sorted by uid, metaid and start time'''
-
+    Returns a list of frozensets, and sets internal representations to translate
+    them back to graph structure.'''
 
     meta_ids = []
     count = 0
@@ -162,15 +129,21 @@ class RMDB:
     meta_id = None
     attempt = 0
 
-    self.query = {}
+    baskets = []
+    tokens = set([])
 
+    # scan through the output, creating tokens for the output and mappings for
+    # the inverse relationship
+    # output is sorted in user_id, meta_id, start order.
     for transaction in transactions:
+      # new user (new basket)
       if not transaction[0] == user_id:
         user_id = transaction[0]
         meta_id = None
         attempt = 0
-        self.query[user_id] = []
+        baskets.append([])
 
+      # new question (reset attempt)
       if not transaction[2] == meta_id:
         meta_id = transaction[2] 
         attempt = 0
@@ -178,8 +151,24 @@ class RMDB:
       if attempt > 1:
         continue
 
-      self.query[user_id].append(Event(transaction, attempt))
+      token = self.token(transaction, attempt)
+      baskets[-1].append(token)
+      tokens.add(token)
       attempt += 1
+
+    print "{} baskets".format(len(baskets))
+    print "{} unique tokens".format(len(tokens))
+
+    lens = [len(x) for x in baskets]
+    print "{} longest sequence".format(max([len(x) for x in baskets]))
+
+    self.token_to_idx = {x[1]:x[0] for x in enumerate(tokens)}
+    self.idx_to_token = {x[0]:x[1] for x in enumerate(tokens)}
+
+    # shorten strings to integers to make comparisons faster.
+    baskets_short = [[self.token_to_idx[token] for token in transaction] for transaction in baskets]
+ 
+    return baskets_short
 
   def select(self, obj_idxs = None, module_id = None):
     if obj_idxs:
@@ -195,25 +184,81 @@ class RMDB:
           # if module is selected, all metaids are selected
           mod.selected = True
 
+  def summary(self):
+    '''Print out summary statistics and provide plots of the database.'''
+    print "db summary:"
+    self.c.execute('select count(*) from objectives')
+    print "{} objectives".format(self.c.fetchone()[0])
+    self.c.execute('select count(*) from modules')
+    print "{} modules".format(self.c.fetchone()[0])
+    self.c.execute('select count(*) from problems')
+    print "{} problems".format(self.c.fetchone()[0])
+    self.c.execute('select count(*) from transactions')
+    print "{} transactions".format(self.c.fetchone()[0])
+    print "---------------------------------------------"
+    self.c.execute('select count(distinct meta_id) from transactions')
+    print "{} unique metaids".format(self.c.fetchone()[0])
+    self.c.execute('select count(distinct user_id) from transactions')
+    print "{} unique userids".format(self.c.fetchone()[0])
+    print "---------------------------------------------"
+    self.c.execute('select obj_id from objectives order by obj_idx')
+    objs = self.c.fetchall()
+
+    counts = {}
+    for obj in objs:
+      print "on obj {}".format(obj)
+      counts[obj] = {}
+      self.c.execute('select module_id from modules where obj_id = (?)', obj)
+      modules = self.c.fetchall()
+      for module in modules:
+        counts[obj][module] = {}
+        q_str = '''select count(*) from transactions where meta_id in 
+        (select meta_id from problems where module_id = (?))'''
+        self.c.execute(q_str, module)
+        counts[obj][module]['count'] = self.c.fetchone()[0]
+        q_str = '''select count(distinct user_id) from transactions where meta_id in 
+        (select meta_id from problems where module_id = (?))'''
+        self.c.execute(q_str, module)
+        counts[obj][module]['users'] = self.c.fetchone()[0]
+
+    obj_counts = np.zeros(len(objs))
+    obj_users = np.zeros(len(objs))
+    module_counts = []
+    for idx, obj in enumerate(objs):
+      c = 0
+      u = 0
+      for module in counts[obj].keys():
+        c += counts[obj][module]['count']
+        u += counts[obj][module]['users']
+      obj_counts[idx] = c
+      obj_users[idx] = u
+
+    plt.subplot(211)
+    plt.bar(range(len(obj_counts)), obj_counts)
+    plt.xlabel('obj number')
+    plt.ylabel('number of transactions')
+    plt.subplot(212)
+    plt.bar(range(len(obj_users)), obj_users)
+    plt.xlabel('obj number')
+    plt.ylabel('number of unique users')
+    plt.show()
+    import pdb; pdb.set_trace()
+
   def close(self):
     self.conn.close()
+
+  def print_seq(self, seq):
+    for idx in seq:
+      token = self.idx_to_token[idx]
+      context = self.meta_id_map[token[0]]
+      print "obj: " + context[0] + " module: " + context[1] + " metaid: " +\
+        token[0] + " attempt: " + str(token[1]) + " hint: " + str(token[2]) + " correct: "\
+        + str(token[3])
+
 
 if __name__ == "__main__":
   # test code
   rmdb = RMDB('data/rm.db')
+  rmdb.summary()
   rmdb.select([0])
-
-  out = rmdb.query()
-  
-  if len(sys.argv) == 2:
-  	for key in out.keys():
-  		for val in out[key]:
-  			print '\t-{}'.format(val)
-  else:
-    	for key in out.keys():
-			print key + ":"
-			for val in out[key]:
-				print '\t-{}'.format(val)
-			print '\n'
-
-  rmdb.close()
+  rmdb.query()
